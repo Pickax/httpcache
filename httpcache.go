@@ -157,6 +157,10 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 			cachedResp.Header.Set(XFromCache, "1")
 		}
 
+		if req.Header.Get("always-cached") != "" {
+			return cachedResp, nil
+		}
+
 		if varyMatches(cachedResp, req) {
 			// Can only use cached value if the new request doesn't Vary significantly
 			freshness := getFreshness(cachedResp.Header, req.Header)

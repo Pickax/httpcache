@@ -1446,6 +1446,65 @@ func TestStaleIfErrorKeepsStatus(t *testing.T) {
 	}
 }
 
+func TestAlwaysCached(t *testing.T) {
+	resetTest()
+
+	now := time.Now()
+	tmock := transportMock{
+		response: &http.Response{
+			Status: http.StatusText(http.StatusOK),
+			StatusCode: http.StatusOK,
+			Header: http.Header{
+				"Date":          []string{now.Format(time.RFC1123)},
+			},
+			Body: ioutil.NopCloser(bytes.NewBuffer([]byte("some data"))),
+		},
+		err: nil,
+	}
+
+	tp := NewMemoryCacheTransport()
+	tp.Transport = &tmock
+
+	// First response is cached
+	r, _ := http.NewRequest("GET", "http://somewhere/", nil)
+	resp, err := tp.RoundTrip(r)
+	if err != nil {
+		t.Fatal(err);
+	}
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmock.response = &http.Response{StatusCode: http.StatusNotFound}
+	tmock.err = nil
+
+	clock = &fakeClock{elapsed: 3 * time.Hour}
+
+	r, _ = http.NewRequest("GET", "http://somewhere/", nil)
+	r.Header.Add("Always-Cached", "true")
+	resp, err = tp.RoundTrip(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+
+	if resp.Header.Get("X-From-Cache") != "1" {
+		t.Fatal("response not from cache")
+	}
+}
+
 // Test that http.Client.Timeout is respected when cache transport is used.
 // That is so as long as request cancellation is propagated correctly.
 // In the past, that required CancelRequest to be implemented correctly,
