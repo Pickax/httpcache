@@ -1,4 +1,4 @@
-module httpcache
+module github.com/Pickax/httpcache
 
 go 1.16
 
